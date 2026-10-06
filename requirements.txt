@@ -1,0 +1,7 @@
+requests
+pandas
+networkx
+scikit-learn
+joblib
+streamlit
+PyGithub
