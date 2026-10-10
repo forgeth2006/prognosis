@@ -26,10 +26,23 @@ FILE_NAMES = ["CHANGELOG.md", "CHANGELOG.rst", "CHANGES.md", "CHANGES.rst",
 BREAKING = re.compile(r"breaking|removed|deprecat", re.I)
 
 # Replace with B's real bump table once it exists.
-TESTS = [("requests", "2.31.0", "2.32.0"),
-         ("flask", "2.3.0", "3.0.0"),
-         ("pandas", "2.0.0", "2.1.0")]
-
+TESTS = [
+    ("requests", "2.31.0", "2.32.0"),
+    ("flask", "2.3.0", "3.0.0"),
+    ("pandas", "2.0.0", "2.1.0"),
+    ("numpy", "1.26.0", "1.26.4"),
+    ("pytest", "7.4.0", "8.0.0"),
+    ("sqlalchemy", "1.4.0", "2.0.0"),
+    ("pydantic", "1.10.0", "2.0.0"),
+    ("black", "23.12.0", "24.1.0"),
+    ("click", "8.1.3", "8.1.7"),
+    ("jinja2", "3.1.2", "3.1.3"),
+    ("pillow", "9.5.0", "10.0.0"),
+    ("scikit-learn", "1.2.0", "1.3.0"),
+    ("django", "4.2", "5.0"),
+    ("matplotlib", "3.7.0", "3.8.0"),
+    ("werkzeug", "2.3.0", "3.0.0"),
+]
 
 # ---------- fetching (cached + polite) ----------
 def cached_get(url, as_json=False):
@@ -153,7 +166,7 @@ def process(pkg, old_v, new_v):
     row["new_release_date"] = rel[0]["upload_time"] if rel else None
     for text, source in candidate_texts(meta):
         section = extract(text, old_v, new_v)
-        if section:
+        if section and (source != "docs_page" or len(section) >= 500):
             row["source_type"] = source
             return {**row, **features(section)}
     return {**row, **features(None)}
