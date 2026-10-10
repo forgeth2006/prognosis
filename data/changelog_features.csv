@@ -1,0 +1,4 @@
+package,old_version,new_version,source_type,new_release_date,changelog_found,changelog_chars,changelog_lines,has_breaking_keyword
+requests,2.31.0,2.32.0,repo_raw,2024-05-20T16:08:19,True,2058.0,46.0,True
+flask,2.3.0,3.0.0,repo_raw,2023-09-30T14:36:10,True,1046.0,43.0,True
+pandas,2.0.0,2.1.0,none,2023-08-30T13:13:26,False,,,
