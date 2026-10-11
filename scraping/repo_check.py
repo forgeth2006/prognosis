@@ -2,18 +2,21 @@
 
 Checks candidate repos against the project criteria and writes a CSV:
   1. .github/dependabot.yml updates pip (or uv) packages
-  2. at least 100 single-package bump PRs from Dependabot (estimated from a sample)
+  2. at least 100 single-package bump PRs from Dependabot (estimated from a sample;
+     range updates like "Update X requirement from >=A to >=B" are NOT counted)
   3. a GitHub Actions workflow that runs on pull requests and runs tests
   4. a Dependabot PR in the last 180 days (the repo is still active)
 
 Save as scraping/repo_check.py and run from the repo root:
     python scraping/repo_check.py
 Add your own candidates, one 'owner/name' per line, in scraping/repos.txt (optional).
+To re-check ONLY the repos listed in repos.txt:  python scraping/repo_check.py --only
 If GitHub says you hit a rate limit, wait an hour and run it again.
 """
 import csv
 import os
 import re
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -46,7 +49,10 @@ SEED = [
 
 # Python package names never contain "/", while GitHub Actions and pre-commit hooks do
 # (e.g. actions/checkout), so excluding "/" keeps Actions bumps out of the count.
-BUMP = re.compile(r"[Bb]ump [^\s/]+ from \S+ to \S+|[Uu]pdate [^\s/]+ requirement from \S+ to \S+")
+# Range updates ("Update X requirement from >=A to >=B") are counted separately, because
+# CI on those PRs is weak evidence that a bump broke anything.
+BUMP = re.compile(r"[Bb]ump [^\s/]+ from \S+ to \S+")
+RANGE = re.compile(r"[Uu]pdate [^\s/]+ requirement from \S+ to \S+")
 TESTS = re.compile(r"\b(pytest|tox|nox|unittest|nosetests)\b|make (ci|test)\b|coverage run", re.I)
 
 
@@ -79,7 +85,7 @@ def is_real_ci(workflow_text):
 
 
 def check_repo(repo):
-    row = {"repo": repo, "ecosystems": "", "dependabot_prs": "", "est_single_bumps": "",
+    row = {"repo": repo, "ecosystems": "", "dependabot_prs": "", "est_single_bumps": "", "est_range_updates": "",
            "last_dependabot_pr": "", "real_ci": "", "verdict": "FAIL", "reason": ""}
     raw = f"https://raw.githubusercontent.com/{repo}/HEAD/.github"
 
@@ -109,7 +115,9 @@ def check_repo(repo):
     total, items = data.get("total_count", 0), data.get("items", [])
     share = sum(bool(BUMP.search(i["title"])) for i in items) / len(items) if items else 0
     est = round(total * share)
+    range_share = sum(bool(RANGE.search(i["title"])) for i in items) / len(items) if items else 0
     row.update(dependabot_prs=total, est_single_bumps=est,
+               est_range_updates=round(total * range_share),
                last_dependabot_pr=items[0]["created_at"][:10] if items else "")
     if est < MIN_BUMPS:
         row["reason"] = f"only about {est} single-package bump PRs"
@@ -136,7 +144,8 @@ def check_repo(repo):
 
 
 def main():
-    repos = list(SEED)
+    only = "--only" in sys.argv  # check only the repos listed in scraping/repos.txt
+    repos = [] if only else list(SEED)
     if EXTRA.exists():
         repos += [ln.strip() for ln in EXTRA.read_text().splitlines()
                   if ln.strip() and not ln.startswith("#")]
@@ -146,13 +155,14 @@ def main():
         row = check_repo(repo)
         rows.append(row)
         print(f"{row['verdict']:<6} {repo:<34} {row['reason']}", flush=True)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUT, "w", newline="", encoding="utf-8") as f:
+    out = OUT.with_name("repo_shortlist_recheck.csv") if only else OUT
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
     passed = [r["repo"] for r in rows if r["verdict"] == "PASS"]
-    print(f"\n{len(passed)} of {len(rows)} repos passed. Saved to {OUT}")
+    print(f"\n{len(passed)} of {len(rows)} repos passed. Saved to {out}")
     print("Passed:", ", ".join(passed) if passed else "none")
 
 
