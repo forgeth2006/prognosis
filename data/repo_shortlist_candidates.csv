@@ -47,3 +47,41 @@ saleor/saleor,github-actions uv,1553,1289,2026-10-09,True,PASS,meets all four cr
 zulip/zulip,,,,,,FAIL,no dependabot.yml (or repo not found)
 OpenBB-finance/OpenBB,,,,,,FAIL,no dependabot.yml (or repo not found)
 ultralytics/ultralytics,github-actions pip,109,48,2026-10-02,,FAIL,only about 48 single-package bump PRs
+aio-libs/yarl,github-actions pip,562,365,2026-10-09,True,PASS,meets all four criteria (estimate)
+aio-libs/multidict,github-actions pip,493,182,2026-10-08,True,PASS,meets all four criteria (estimate)
+aio-libs/frozenlist,github-actions pip,510,352,2026-10-09,True,PASS,meets all four criteria (estimate)
+aio-libs/aiosignal,github-actions pip,592,480,2026-10-09,True,PASS,meets all four criteria (estimate)
+pytest-dev/pytest-asyncio,github-actions uv,746,634,2026-10-07,True,PASS,meets all four criteria (estimate)
+pytest-dev/pytest-xdist,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+pytest-dev/pytest-cov,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+encode/uvicorn,github-actions uv,,,,,UNSURE,PR search failed: http 422
+encode/starlette,github-actions uv,,,,,UNSURE,PR search failed: http 422
+Lightning-AI/pytorch-lightning,github-actions pip,595,452,2026-09-14,True,PASS,meets all four criteria (estimate)
+python-trio/trio,,,,,,FAIL,no dependabot.yml (or repo not found)
+readthedocs/readthedocs.org,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+paperless-ngx/paperless-ngx,docker docker-compose github-actions npm pre-commit uv,1403,463,2026-10-03,True,PASS,meets all four criteria (estimate)
+home-assistant/supervisor,,,,,,FAIL,no dependabot.yml (or repo not found)
+esphome/esphome,github-actions pip,1399,965,2026-10-08,True,PASS,meets all four criteria (estimate)
+netbox-community/netbox,,,,,,FAIL,no dependabot.yml (or repo not found)
+frappe/frappe,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+python/mypy,,,,,,FAIL,no dependabot.yml (or repo not found)
+PyCQA/pylint,github-actions pip,,,,,UNSURE,PR search failed: http 422
+PyCQA/flake8,,,,,,FAIL,no dependabot.yml (or repo not found)
+PyGithub/PyGithub,github-actions pip,50,16,2026-02-02,,FAIL,only about 16 single-package bump PRs
+litestar-org/litestar,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+mlflow/mlflow,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+localstack/localstack,docker github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+ydataai/ydata-profiling,,,,,,FAIL,no dependabot.yml (or repo not found)
+microsoft/autogen,,,,,,FAIL,no dependabot.yml (or repo not found)
+fastapi/sqlmodel,github-actions uv,406,252,2026-10-01,False,FAIL,no workflow runs tests on pull requests
+fastapi/typer,docker docker-compose github-actions uv,356,235,2026-10-01,False,FAIL,no workflow runs tests on pull requests
+python-telegram-bot/python-telegram-bot,,,,,,FAIL,no dependabot.yml (or repo not found)
+tox-dev/tox,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+pypa/virtualenv,github-actions pip,63,0,2026-10-06,,FAIL,only about 0 single-package bump PRs
+pypa/setuptools,,,,,,FAIL,no dependabot.yml (or repo not found)
+jazzband/pip-tools,,,,,,FAIL,no dependabot.yml (or repo not found)
+squidfunk/mkdocs-material,,,,,,FAIL,no dependabot.yml (or repo not found)
+Kozea/WeasyPrint,,,,,,FAIL,no dependabot.yml (or repo not found)
+cookiecutter/cookiecutter,github-actions,,,,,FAIL,Dependabot does not update pip/uv packages
+spyder-ide/spyder,,,,,,FAIL,no dependabot.yml (or repo not found)
+dagster-io/dagster,npm pip,240,79,2026-08-12,,FAIL,only about 79 single-package bump PRs
