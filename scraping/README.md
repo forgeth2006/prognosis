@@ -1,0 +1,13 @@
+# scraping/ (Person B)
+
+Run from the repo root. `export GITHUB_TOKEN=<your personal access token>` first (never commit it).
+
+| Step | Command | Output |
+|---|---|---|
+| 1. Raw PR metadata (Weeks 2-3) | `python scraping/scrape_prs.py --max-prs 300` | `data/pr_metadata_raw.csv` |
+| 2. CI labels (Week 4) | `python scraping/label_ci.py` | `data/labeled_prs_v0.csv` + `_summary.csv` |
+| 3. Hand-off to Person A | `python scraping/export_for_changelog.py` | `data/pr_bumps_for_changelog.csv` |
+| Tests | `python -m unittest discover -s scraping/tests` | |
+
+Both scrapers resume where they stopped (append-only CSV + HTTP cache in `scraping/.cache/`).
+Label rule: `LABEL_RULES.md`. Repo list: `shortlist_repos.txt` (Person A's 18 repos).
