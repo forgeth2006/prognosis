@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from parse_bump import classify_files, extract_links, normalize_name, parse_title, version_delta  # noqa: E402
+from parse_bump import (classify_files, extract_links, normalize_name, parse_title,  # noqa: E402
+                        version_delta, versions_from_compare)
 
 
 class TitleTests(unittest.TestCase):
@@ -85,6 +86,16 @@ class LinkTests(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(extract_links(None)["changelog_url"], "")
+
+
+class CompareTests(unittest.TestCase):
+    def test_versions_from_compare(self):
+        self.assertEqual(versions_from_compare("https://github.com/psf/requests/compare/v2.31.0...v2.32.0"),
+                         ("2.31.0", "2.32.0"))
+        self.assertEqual(versions_from_compare("https://github.com/o/r/compare/pytest-7.4.0...pytest-8.0.0rc1"),
+                         ("7.4.0", "8.0.0rc1"))
+        self.assertEqual(versions_from_compare("https://github.com/o/r/compare/abc123...def456"), ("", ""))
+        self.assertEqual(versions_from_compare(""), ("", ""))
 
 
 if __name__ == "__main__":

@@ -37,11 +37,25 @@ class ScrapeTests(unittest.TestCase):
             {1: ["requirements.txt"], 3: [".github/workflows/ci.yml"], 4: ["requirements.txt"]})
 
     def test_only_dependabot_prs_and_max(self):
-        self.assertEqual([p["number"] for p in bump_prs(self.client, "o/r", 10)], [1, 3, 4])
-        self.assertEqual([p["number"] for p in bump_prs(self.client, "o/r", 2)], [1, 3])
+        self.assertEqual([p["number"] for p in bump_prs(self.client, "o/r", 10, True)], [1, 3, 4])
+        self.assertEqual([p["number"] for p in bump_prs(self.client, "o/r", 2, True)], [1, 3])
+
+    def test_actions_skipped_unless_kept(self):
+        self.assertEqual([p["number"] for p in bump_prs(self.client, "o/r", 10, keep_non_pip=False)], [1, 4])
+        self.assertEqual([p["number"] for p in bump_prs(self.client, "o/r", 10, keep_non_pip=True)], [1, 3, 4])
+
+    def test_range_update_resolves_versions_from_compare_link(self):
+        body = '<a href="https://github.com/o/pytest/compare/7.4.0...8.0.0">Compare view</a>'
+        client = FakeClient([pr(9, "Update pytest requirement from <8,>=7 to >=7,<9", body=body)],
+                            {9: ["requirements.txt"]})
+        row = pr_row(client, "o/r", pr(9, "Update pytest requirement from <8,>=7 to >=7,<9", body=body))
+        self.assertEqual((row["resolved_old_version"], row["resolved_new_version"], row["version_source"],
+                          row["bump_type"]), ("7.4.0", "8.0.0", "compare_url", "major"))
+        row2 = pr_row(client, "o/r", pr(9, "Update pytest requirement from <8,>=7 to >=7,<9"))
+        self.assertEqual((row2["bump_type"], row2["resolved_old_version"]), ("range", ""))
 
     def test_row_matches_schema_and_roundtrips_through_csv(self):
-        rows = [pr_row(self.client, "o/r", p) for p in bump_prs(self.client, "o/r", 10)]
+        rows = [pr_row(self.client, "o/r", p) for p in bump_prs(self.client, "o/r", 10, True)]
         for r in rows:
             self.assertEqual(set(r), set(RAW_FIELDS))
         buf = io.StringIO()

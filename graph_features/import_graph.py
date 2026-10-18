@@ -118,30 +118,43 @@ def _imports(tree, rel):
                     yield f"{mod}.{a.name}", rel_flag
 
 
+def read_sources(repo_dir):
+    """{relative path (posix str): source text} for every analysable .py file in a checkout."""
+    repo_dir = Path(repo_dir).resolve()
+    out = {}
+    for p in repo_dir.rglob("*.py"):
+        rel = p.relative_to(repo_dir)
+        if not (set(rel.parts) & SKIP_DIRS):
+            out[rel.as_posix()] = p.read_text(encoding="utf-8", errors="replace")
+    return out
+
+
 def build_graph(repo_dir):
     """Return (networkx.DiGraph, stats dict) for a checkout directory."""
-    repo_dir = Path(repo_dir).resolve()
-    files = [p for p in repo_dir.rglob("*.py")
-             if not (set(p.relative_to(repo_dir).parts) & SKIP_DIRS)]
+    return build_graph_from_sources(read_sources(repo_dir))
+
+
+def build_graph_from_sources(sources):
+    """Same as build_graph but from {relative path: source text}, so graphs can be built
+    from any git revision without a checkout (see snapshots.py)."""
+    rels = {Path(r): text for r, text in sources.items()}
+    dirs_with_init = {r.parent for r in rels if r.name == "__init__.py"}
     index = {}  # dotted module name -> relative file path
-    for p in files:
-        rel = p.relative_to(repo_dir)
+    for rel in rels:
         names = _module_names(rel)
-        if rel.name != "__init__.py" and not (p.parent / "__init__.py").exists():
+        if rel.name != "__init__.py" and rel.parent not in dirs_with_init:
             names.append(rel.stem)  # script-style local import (dir is not a package)
         for n in names:
             index.setdefault(n, rel)
     internal_tops = {n.split(".")[0] for n in index}
 
     G = nx.DiGraph()
-    stats = {"n_files": len(files), "parse_failures": 0}
-    for p in files:
-        rel = p.relative_to(repo_dir)
-        G.add_node(str(rel), kind="file", role=file_role(rel))
-    for p in files:
-        rel = p.relative_to(repo_dir)
+    stats = {"n_files": len(rels), "parse_failures": 0}
+    for rel in rels:
+        G.add_node(rel.as_posix(), kind="file", role=file_role(rel))
+    for rel, text in rels.items():
         try:
-            tree = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+            tree = ast.parse(text)
         except (SyntaxError, ValueError, RecursionError):
             stats["parse_failures"] += 1
             continue
@@ -153,13 +166,13 @@ def build_graph(repo_dir):
                     target = index.get(".".join(parts[:k]))
                     if target is not None:
                         if target != rel:
-                            G.add_edge(str(rel), str(target), kind="internal")
+                            G.add_edge(rel.as_posix(), target.as_posix(), kind="internal")
                         break
             elif top not in sys.stdlib_module_names and top not in NOT_PACKAGES:
                 dist = dist_name(top)
                 if dist:
                     G.add_node(f"pkg:{dist}", kind="package")
-                    G.add_edge(str(rel), f"pkg:{dist}", kind="external")
+                    G.add_edge(rel.as_posix(), f"pkg:{dist}", kind="external")
     return G, stats
 
 
@@ -194,6 +207,7 @@ def package_features(G):
         dd = [depth[f] for f in direct if f in depth]
         rows.append({
             "package": node[4:],
+            "package_norm": normalize_name(node[4:]),
             "blast_direct": len(direct),
             "blast_direct_src": roles.count("src"),
             "blast_direct_tests": roles.count("test"),
@@ -205,7 +219,10 @@ def package_features(G):
 
 
 def analyze(repo_dir, repo_name):
-    G, stats = build_graph(repo_dir)
+    return analyze_graph(*build_graph(repo_dir), repo_name)
+
+
+def analyze_graph(G, stats, repo_name):
     rows = package_features(G)
     for r in rows:
         r.update(repo=repo_name, repo_n_files=stats["n_files"], repo_parse_failures=stats["parse_failures"])
@@ -235,14 +252,14 @@ def main():
         rows += analyze(clone(repo), repo)
     if not rows:
         ap.error("give a checkout path or --repos")
-    cols = ["repo", "package", "blast_direct", "blast_direct_src", "blast_direct_tests",
+    cols = ["repo", "package", "package_norm", "blast_direct", "blast_direct_src", "blast_direct_tests",
             "blast_transitive", "depth_min", "depth_mean", "repo_n_files", "repo_parse_failures"]
     df = pd.DataFrame(rows)[cols]
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.out, index=False)
     for repo, g in df.groupby("repo"):
         print(f"\n{repo}: {g['repo_n_files'].iloc[0]} files, {len(g)} external packages")
-        print(g.head(8)[cols[1:8]].to_string(index=False))
+        print(g.head(8)[cols[1:9]].to_string(index=False))
     print(f"\nSaved {len(df)} rows to {args.out}")
 
 
