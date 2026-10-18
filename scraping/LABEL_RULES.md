@@ -13,9 +13,9 @@ failure that a maintainer later fixed by pushing extra commits is still a breaka
 
 ## Which CI
 GitHub Actions workflow runs on that commit with event `pull_request` / `pull_request_target`.
-Workflows whose name matches `IGNORE_WORKFLOW` (labelers, codecov, CLA, stale, release/publish,
-dependabot auto-merge, previews) are ignored. Cancelled, skipped, neutral and unfinished runs carry no information.
+Workflows whose name matches `IGNORE_WORKFLOW` are ignored when they do not measure whether the dependency bump broke the project. This includes labelers, Codecov/coverage, CLA, stale/welcome, Dependabot auto-merge, pre-commit, release/publish/deploy/preview/triage, autofix.ci, Semgrep, PR title lint/check, external-component comments, dependency review, and changelog checks.
 
+Cancelled, skipped, neutral and unfinished runs carry no information.
 ## Re-runs (flaky handling)
 - Any remaining workflow failed, `run_attempt == 1`  → **label 1**, `fail_confidence = single_attempt`
 - Any remaining workflow failed, `run_attempt > 1`   → **label 1**, `fail_confidence = confirmed` (failed again after a re-run)

@@ -34,7 +34,9 @@ FAIL_CONCLUSIONS = {"failure", "timed_out", "startup_failure"}
 # Workflows that say nothing about whether the bump broke the build.
 IGNORE_WORKFLOW = re.compile(
     r"label|codecov|coverage report|\bcla\b|stale|welcome|dependabot|auto-?merge|"
-    r"pre-commit\.ci|release|publish|deploy|preview|triage", re.I)
+    r"pre-commit\.ci|release|publish|deploy|preview|triage|"
+    r"autofix\.ci|semgrep|title\s+(?:lint|check)|"
+    r"add external component comment|dependency review|changelog check", re.I)
 
 
 def static_exclusion(row, include_range=False):
