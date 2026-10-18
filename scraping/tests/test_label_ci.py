@@ -52,6 +52,31 @@ class LabelRuleTests(unittest.TestCase):
         self.assertEqual(r["label"], 0)
 
 
+
+    def test_non_test_workflows_are_ignored(self):
+        ignored = [
+            "autofix.ci",
+            "Run Semgrep Checks",
+            "PR Title Lint",
+            "PR Title Check",
+            "Add External Component Comment",
+            "Dependency Review",
+            "Changelog check",
+        ]
+        for name in ignored:
+            with self.subTest(workflow=name):
+                result = label_from_runs([run(name, "failure")])
+                self.assertEqual(result["label"], "")
+                self.assertEqual(result["ci_status"], "no_ci")
+
+        # Ignoring an unrelated workflow must not hide a real test failure.
+        result = label_from_runs([
+            run("autofix.ci", "failure"),
+            run("Tests", "failure"),
+        ])
+        self.assertEqual(result["label"], 1)
+        self.assertEqual(result["failed_workflows"], "Tests")
+
 def raw(**kw):
     base = {"is_grouped": "False", "title_parsed": "True", "is_range_update": "False", "ecosystem": "pip",
             "touches_ci_config": "False", "bump_type": "minor"}
