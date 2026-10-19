@@ -34,16 +34,18 @@ Draft stage. Waiting on B's 3-repo validation to know the real breakage rate.
 - Only 5 of 215 breakages are `confirmed`, so a confirmed-only sensitivity run is infeasible.
 - Open: lint/docs workflows count as failures.
 
-## Baseline (Week 8) — PROVISIONAL, computed on labeled_prs_v1 before the label fix
+## Baseline (Week 8), computed on labeled_prs_v2 / feature_table_v2
 Rule: predict "breaks" when `major_delta > 0`. Script: `modeling/baseline.py`
-(temporal split, cutoff 2026-09-01).
+(temporal split, cutoff 2026-09-01). Labels: v2 (non-test workflows ignored).
 
 | split | n | positives | precision | recall | PR-AUC |
 |---|---|---|---|---|---|
-| train | 1096 | 175 (16.0%) | 0.195 | 0.149 | 0.165 |
-| test | 275 | 40 (14.5%) | 0.190 | 0.100 | 0.150 |
+| train | 1051 | 114 (10.8%) | 0.182 | 0.211 | 0.124 |
+| test | 263 | 15 (5.7%) | 0.143 | 0.200 | 0.074 |
 
-Floor to beat: test PR-AUC 0.150 (prevalence 0.145). The rule is barely above chance
-(TP=4, FP=17, FN=36 on test), so version-bump size alone says little.
-Caveats: only 40 test positives, so differences are noisy; labels still include non-test
-workflow failures (autofix.ci, Semgrep). Re-run after Person B re-labels.
+Floor to beat: test PR-AUC 0.074 (prevalence 0.057).
+The rule flags few PRs and is only modestly better than chance (train precision 0.182 vs
+base rate 0.108). Test has 15 positives (3 true positives), so these numbers are noisy: one
+more or fewer hit moves recall by about 7 points.
+Breakage rate fell from 10.8% (train) to 5.7% (test): temporal shift or noise, to be checked.
+Next: multi-fold time-ordered validation to get stable estimates.
