@@ -145,3 +145,24 @@ def extract_links(body):
     if m:
         out["source_repo_url"] = m.group(1)
     return out
+
+
+# ---- range updates -------------------------------------------------------------
+_COMPARE = re.compile(r"/compare/(?P<old>[^/?#]+?)\.\.\.(?P<new>[^/?#]+)")
+_TAG_VERSION = re.compile(r"(?:^|[^0-9A-Za-z.])v?(\d+(?:\.\d+)+[A-Za-z0-9.+_-]*)$|^v?(\d+)$")
+
+
+def versions_from_compare(url):
+    """(old, new) version strings from a GitHub compare URL like .../compare/v7.4.0...v8.0.0.
+
+    Range-update PRs ("Update X requirement from A to B") carry specifiers in the title, so the
+    real version pair has to come from here. Returns ('', '') if the tags carry no version.
+    """
+    m = _COMPARE.search(url or "")
+    if not m:
+        return "", ""
+    out = []
+    for tag in (m["old"], m["new"]):
+        v = _TAG_VERSION.search(tag)  # dotted version after a separator, or a bare/v-prefixed integer
+        out.append((v.group(1) or v.group(2)) if v else "")
+    return (out[0], out[1]) if all(out) else ("", "")

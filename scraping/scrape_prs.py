@@ -16,7 +16,8 @@ import csv
 from pathlib import Path
 
 from github_client import GitHubClient, GitHubError
-from parse_bump import classify_files, extract_links, parse_title, version_delta
+from parse_bump import (classify_files, extract_links, parse_title, version_delta,
+                        versions_from_compare)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPOS = Path(__file__).resolve().parent / "shortlist_repos.txt"
@@ -26,7 +27,8 @@ BOT = "dependabot[bot]"
 
 RAW_FIELDS = [
     "repo", "pr_number", "pr_url", "title", "state", "merged", "created_at", "closed_at", "merged_at",
-    "base_ref", "head_sha", "package", "package_norm", "old_version", "new_version", "title_parsed",
+    "base_ref", "head_sha", "package", "package_norm", "old_version", "new_version", "resolved_old_version",
+    "resolved_new_version", "version_source", "title_parsed",
     "is_grouped", "is_range_update", "bump_type", "is_prerelease", "is_zero_major",
     "major_delta", "minor_delta", "patch_delta",
     "ecosystem", "n_files", "n_non_dependency_files", "touches_ci_config", "files",
@@ -49,12 +51,19 @@ def load_done(out):
         return {(r["repo"], r["pr_number"]) for r in csv.DictReader(f)}
 
 
-def bump_prs(client, repo, max_prs):
-    """Yield closed PRs authored by Dependabot, newest first, up to max_prs."""
+def bump_prs(client, repo, max_prs, keep_non_pip=False):
+    """Yield closed PRs authored by Dependabot, newest first, up to max_prs.
+
+    Unless keep_non_pip, PRs whose package name contains '/' (GitHub Actions, pre-commit hooks,
+    e.g. "Bump actions/checkout") are skipped before any per-PR API call and do not count
+    toward max_prs: they can never be labeled.
+    """
     seen = 0
     for pr in client.paginate(f"/repos/{repo}/pulls",
                               params={"state": "closed", "sort": "created", "direction": "desc"}):
         if (pr.get("user") or {}).get("login") != BOT:
+            continue
+        if not keep_non_pip and "/" in parse_title(pr["title"])["package"]:
             continue
         yield pr
         seen += 1
@@ -64,25 +73,37 @@ def bump_prs(client, repo, max_prs):
 
 def pr_row(client, repo, pr):
     t = parse_title(pr["title"])
-    delta = version_delta(t["old_version"], t["new_version"]) if t["title_parsed"] and not t["is_range_update"] \
-        else {"bump_type": "range" if t["is_range_update"] else "unknown", "is_prerelease": "",
-              "is_zero_major": "", "major_delta": "", "minor_delta": "", "patch_delta": ""}
+    links = extract_links(pr.get("body"))
+    # Real version pair: the title for ordinary bumps; the compare link for range updates.
+    if t["title_parsed"] and not t["is_range_update"]:
+        old_v, new_v, src = t["old_version"], t["new_version"], "title"
+    elif t["is_range_update"]:
+        (old_v, new_v), src = versions_from_compare(links["compare_url"]), "compare_url"
+        if not old_v:
+            src = ""
+    else:
+        old_v = new_v = src = ""
+    if old_v:
+        delta = version_delta(old_v, new_v)
+    else:
+        delta = {"bump_type": "range" if t["is_range_update"] else "unknown", "is_prerelease": "",
+                 "is_zero_major": "", "major_delta": "", "minor_delta": "", "patch_delta": ""}
     files = [f["filename"] for f in client.paginate(
         f"/repos/{repo}/pulls/{pr['number']}/files", cache=True, max_items=300)]
     fc = classify_files(files)
-    links = extract_links(pr.get("body"))
     return {
         "repo": repo, "pr_number": pr["number"], "pr_url": pr["html_url"], "title": pr["title"],
         "state": pr["state"], "merged": bool(pr.get("merged_at")), "created_at": pr["created_at"],
         "closed_at": pr.get("closed_at") or "", "merged_at": pr.get("merged_at") or "",
         "base_ref": pr["base"]["ref"], "head_sha": pr["head"]["sha"],
-        **t, **delta, **fc, "files": ";".join(files[:20]), **links,
+        **t, "resolved_old_version": old_v, "resolved_new_version": new_v, "version_source": src,
+        **delta, **fc, "files": ";".join(files[:20]), **links,
     }
 
 
-def scrape_repo(client, repo, max_prs, writer, done, fh):
+def scrape_repo(client, repo, max_prs, writer, done, fh, keep_non_pip=False):
     n_new = n_skip = 0
-    for pr in bump_prs(client, repo, max_prs):
+    for pr in bump_prs(client, repo, max_prs, keep_non_pip):
         if (repo, str(pr["number"])) in done:
             n_skip += 1
             continue
@@ -102,6 +123,8 @@ def main():
     ap.add_argument("--repos", nargs="*", help="owner/name list (default: scraping/shortlist_repos.txt)")
     ap.add_argument("--repos-file", default=str(DEFAULT_REPOS))
     ap.add_argument("--max-prs", type=int, default=300, help="max Dependabot PRs per repo, newest first")
+    ap.add_argument("--keep-non-pip", action="store_true",
+                    help="also record GitHub Actions / pre-commit PRs (default: skip, they are never labeled)")
     ap.add_argument("--out", default=str(DEFAULT_OUT))
     ap.add_argument("--cache-dir", default=str(DEFAULT_CACHE))
     args = ap.parse_args()
@@ -117,7 +140,7 @@ def main():
             writer.writeheader()
         for repo in read_repos(args):
             try:
-                scrape_repo(client, repo, args.max_prs, writer, done, fh)
+                scrape_repo(client, repo, args.max_prs, writer, done, fh, args.keep_non_pip)
             except GitHubError as e:
                 print(f"{repo}: FAILED ({e})")
     print(f"Done. {client.requests_made} API requests. Saved to {out}")

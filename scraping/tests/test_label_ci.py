@@ -6,8 +6,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from label_ci import label_from_runs, label_row, static_exclusion  # noqa: E402
 
 
-def run(name, conclusion, attempt=1, event="pull_request"):
-    return {"name": name, "conclusion": conclusion, "run_attempt": attempt, "event": event}
+def run(name, conclusion, attempt=1, event="pull_request", updated_at="2026-01-01T00:10:00Z"):
+    return {"name": name, "conclusion": conclusion, "run_attempt": attempt, "event": event,
+            "updated_at": updated_at}
 
 
 class LabelRuleTests(unittest.TestCase):
@@ -39,10 +40,42 @@ class LabelRuleTests(unittest.TestCase):
             r = label_from_runs(runs)
             self.assertEqual((r["ci_status"], r["label"]), ("no_ci", ""), runs)
 
+    def test_ci_completed_at_is_latest_finished_run(self):
+        r = label_from_runs([run("Tests", "success", updated_at="2026-01-01T00:10:00Z"),
+                             run("Lint", "success", updated_at="2026-01-01T00:25:00Z"),
+                             run("Docs", "cancelled", updated_at="2026-01-02T00:00:00Z")])
+        self.assertEqual(r["ci_completed_at"], "2026-01-01T00:25:00Z")
+        self.assertEqual(label_from_runs([])["ci_completed_at"], "")
+
     def test_ignored_workflow_does_not_mask_real_result(self):
         r = label_from_runs([run("Codecov", "failure"), run("Tests", "success")])
         self.assertEqual(r["label"], 0)
 
+
+
+    def test_non_test_workflows_are_ignored(self):
+        ignored = [
+            "autofix.ci",
+            "Run Semgrep Checks",
+            "PR Title Lint",
+            "PR Title Check",
+            "Add External Component Comment",
+            "Dependency Review",
+            "Changelog check",
+        ]
+        for name in ignored:
+            with self.subTest(workflow=name):
+                result = label_from_runs([run(name, "failure")])
+                self.assertEqual(result["label"], "")
+                self.assertEqual(result["ci_status"], "no_ci")
+
+        # Ignoring an unrelated workflow must not hide a real test failure.
+        result = label_from_runs([
+            run("autofix.ci", "failure"),
+            run("Tests", "failure"),
+        ])
+        self.assertEqual(result["label"], 1)
+        self.assertEqual(result["failed_workflows"], "Tests")
 
 def raw(**kw):
     base = {"is_grouped": "False", "title_parsed": "True", "is_range_update": "False", "ecosystem": "pip",
@@ -59,6 +92,10 @@ class StaticExclusionTests(unittest.TestCase):
         self.assertEqual(static_exclusion(raw(is_grouped="True")), "grouped_bump")
         self.assertEqual(static_exclusion(raw(title_parsed="False")), "unparseable_title")
         self.assertEqual(static_exclusion(raw(is_range_update="True")), "range_update")
+        self.assertEqual(static_exclusion(raw(is_range_update="True"), include_range=True),
+                         "range_update_no_versions")
+        self.assertEqual(static_exclusion(raw(is_range_update="True", resolved_old_version="7.4.0"),
+                                          include_range=True), "")
         self.assertEqual(static_exclusion(raw(ecosystem="github-actions")), "non_pip_or_non_manifest:github-actions")
         self.assertEqual(static_exclusion(raw(ecosystem="other", touches_ci_config="True")), "touches_ci_config")
         self.assertEqual(static_exclusion(raw(bump_type="downgrade")), "bad_version_delta:downgrade")

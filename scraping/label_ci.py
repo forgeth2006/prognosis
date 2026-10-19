@@ -26,7 +26,7 @@ DEFAULT_OUT = ROOT / "data" / "labeled_prs_v0.csv"
 
 LABEL_FIELDS = ["first_commit_sha", "n_commits", "has_human_commits", "n_workflow_runs",
                 "failed_workflows", "flaky_workflows", "fail_confidence",
-                "ci_status", "label", "exclusion_reason"]
+                "ci_status", "ci_completed_at", "label", "exclusion_reason"]
 OUT_FIELDS = RAW_FIELDS + LABEL_FIELDS
 
 PR_EVENTS = {"pull_request", "pull_request_target"}
@@ -34,17 +34,26 @@ FAIL_CONCLUSIONS = {"failure", "timed_out", "startup_failure"}
 # Workflows that say nothing about whether the bump broke the build.
 IGNORE_WORKFLOW = re.compile(
     r"label|codecov|coverage report|\bcla\b|stale|welcome|dependabot|auto-?merge|"
-    r"pre-commit\.ci|release|publish|deploy|preview|triage", re.I)
+    r"pre-commit\.ci|release|publish|deploy|preview|triage|"
+    r"autofix\.ci|semgrep|title\s+(?:lint|check)|"
+    r"add external component comment|dependency review|changelog check", re.I)
 
 
-def static_exclusion(row):
-    """Reason a PR is excluded before any CI lookup, or ''. Order matters: first match wins."""
+def static_exclusion(row, include_range=False):
+    """Reason a PR is excluded before any CI lookup, or ''. Order matters: first match wins.
+
+    include_range: keep "Update X requirement from A to B" PRs when their real version pair could be
+    recovered from the compare link (resolved_*_version); otherwise they are excluded.
+    """
     if row["is_grouped"] == "True":
         return "grouped_bump"
     if row["title_parsed"] != "True":
         return "unparseable_title"
     if row["is_range_update"] == "True":
-        return "range_update"
+        if not include_range:
+            return "range_update"
+        if not row.get("resolved_old_version"):
+            return "range_update_no_versions"
     if row["ecosystem"] != "pip":
         # Includes github-actions / docker / npm PRs and any PR touching non-manifest files.
         if row["touches_ci_config"] == "True" and row["ecosystem"] == "other":
@@ -62,6 +71,7 @@ def label_from_runs(runs):
     ci_status in {fail, pass, flaky, no_ci}, label, exclusion_reason, fail_confidence, names.
     """
     failed, flaky, passed = [], [], []
+    finished = []  # updated_at of every counted run: when the CI verdict became known
     for r in runs:
         if r.get("event") not in PR_EVENTS:
             continue
@@ -70,6 +80,8 @@ def label_from_runs(runs):
             continue
         attempt = r.get("run_attempt") or 1
         concl = r.get("conclusion")
+        if concl in FAIL_CONCLUSIONS or concl == "success":
+            finished.append(r.get("updated_at") or "")
         if concl in FAIL_CONCLUSIONS:
             failed.append((name, attempt))
         elif concl == "success":
@@ -77,7 +89,8 @@ def label_from_runs(runs):
         # cancelled / skipped / neutral / in-progress carry no information
     res = {"n_workflow_runs": len(failed) + len(flaky) + len(passed),
            "failed_workflows": ";".join(n for n, _ in failed),
-           "flaky_workflows": ";".join(flaky), "fail_confidence": ""}
+           "flaky_workflows": ";".join(flaky), "fail_confidence": "",
+           "ci_completed_at": max(finished) if finished else ""}
     if failed:
         res.update(ci_status="fail", label=1, exclusion_reason="",
                    fail_confidence="confirmed" if any(a > 1 for _, a in failed) else "single_attempt")
@@ -97,7 +110,7 @@ def is_bot(commit):
     return "dependabot" in login.lower() or "dependabot" in name.lower()
 
 
-def label_row(client, row):
+def label_row(client, row):  # noqa: C901
     repo, num = row["repo"], row["pr_number"]
     commits = list(client.paginate(f"/repos/{repo}/pulls/{num}/commits", cache=True, max_items=250))
     out = {k: "" for k in LABEL_FIELDS}
@@ -142,6 +155,8 @@ def main():
     ap.add_argument("--in", dest="inp", default=str(DEFAULT_IN))
     ap.add_argument("--out", default=str(DEFAULT_OUT))
     ap.add_argument("--cache-dir", default=str(DEFAULT_CACHE))
+    ap.add_argument("--include-range-updates", action="store_true",
+                    help="label range-update PRs too (needs resolved versions from the compare link)")
     ap.add_argument("--limit", type=int, help="only process the first N unlabeled PRs (testing)")
     args = ap.parse_args()
 
@@ -158,7 +173,7 @@ def main():
         if new_file:
             w.writeheader()
         for i, row in enumerate(rows, 1):
-            reason = static_exclusion(row)
+            reason = static_exclusion(row, args.include_range_updates)
             if reason:
                 lab = {k: "" for k in LABEL_FIELDS}
                 lab.update(exclusion_reason=reason)

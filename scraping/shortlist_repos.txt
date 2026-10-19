@@ -6,7 +6,6 @@ aio-libs/aiosignal
 pytest-dev/pytest
 pytest-dev/pytest-asyncio
 numpy/numpy
-celery/celery
 mitmproxy/mitmproxy
 streamlit/streamlit
 langchain-ai/langchain
