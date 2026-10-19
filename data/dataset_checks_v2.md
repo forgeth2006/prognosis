@@ -2,12 +2,12 @@
 
 1. **Row counts match: PASS** - labeled rows in labeled_prs_v1 = 1314; feature-table rows = 1314; duplicate (repo, pr_number) keys = 0
 2. **Class balance reported: PASS** - 1314 labeled rows, 129 breakages (9.8%)
-3. **No unexplained null features: PASS** - depth_min: 937 null (937 expected); depth_mean: 937 null (937 expected); changelog_chars: 1314 null (1314 expected); changelog_lines: 1314 null (1314 expected); has_breaking_keyword: 1314 null (1314 expected)
+3. **No unexplained null features: PASS** - depth_min: 937 null (937 expected); depth_mean: 937 null (937 expected); changelog_chars: 474 null (474 expected); changelog_lines: 474 null (474 expected); has_breaking_keyword: 474 null (474 expected)
 4. **Historical rate uses only earlier data: PASS** - brute-force recomputation on 300 random rows
 5. **Graph snapshot never newer than the PR: PASS** - 0 rows violate
 
 ## Coverage notes
-- changelog features matched for 0% of rows (`changelog_scraped`); the rest are unscraped, not 'no changelog'. Person A's scraper must be run on `data/pr_bumps_for_changelog.csv` first.
+- changelog features matched for 100% of rows (`changelog_scraped`); the rest are unscraped, not 'no changelog'. Person A's scraper must be run on `data/pr_bumps_for_changelog.csv` first.
 - rows with no repo snapshot at all: 0; package not imported in its snapshot (dev tool / transitive): 824; depth missing (test-only or not imported): 937
 
 ## Class balance per repo
