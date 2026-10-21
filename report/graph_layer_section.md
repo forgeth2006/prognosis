@@ -39,3 +39,4 @@ Pull requests with `changelog_found=1` had an observed breakage rate of 8.7% (73
 Historical breakage rate and graph-feature availability show descriptive differences worth investigating in subsequent modeling. These findings are exploratory and should guide validation, not be treated as causal conclusions or claims of established predictive value.
 
 Figures and supporting bin counts are available in `report/figures/eda/eda_features_vs_label_1.png`, `report/figures/eda/eda_features_vs_label_2.png`, and `report/figures/eda/eda_summary.csv`.
+
