@@ -49,3 +49,11 @@ base rate 0.108). Test has 15 positives (3 true positives), so these numbers are
 more or fewer hit moves recall by about 7 points.
 Breakage rate fell from 10.8% (train) to 5.7% (test): temporal shift or noise, to be checked.
 Next: multi-fold time-ordered validation to get stable estimates.
+# Sufficiency test (Week 12)
+Setup: 5 time-ordered chunks, 4 expanding-window test folds; both models class-weighted and
+Platt-calibrated; identical features. GB fixed at depth 3 / 200 trees / lr 0.05 (no tuning: 129 positives).
+Result: pooled PR-AUC LR [x] vs GB [y]; difference [d] (95% CI [lo, hi]); GB wins [k] of 4 folds;
+Brier LR [a] vs GB [b]; leave-one-repo-out: [summary].
+Conclusion: [logistic regression is sufficient / boosting adds value] because [...].
+Limits: ~129 positives (~20 per fold); row bootstrap ignores repo clustering; hist_* and
+changelog features are present for most but not all rows.
