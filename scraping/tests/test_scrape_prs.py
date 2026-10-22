@@ -22,6 +22,7 @@ class FakeClient:
 
     def paginate(self, path, params=None, item_key=None, cache=False, max_items=None):
         if path.endswith("/pulls"):
+            self.last_state = params["state"]
             return iter(self.prs)
         if path.endswith("/files"):
             n = int(path.split("/")[-2])
@@ -53,6 +54,12 @@ class ScrapeTests(unittest.TestCase):
                           row["bump_type"]), ("7.4.0", "8.0.0", "compare_url", "major"))
         row2 = pr_row(client, "o/r", pr(9, "Update pytest requirement from <8,>=7 to >=7,<9"))
         self.assertEqual((row2["bump_type"], row2["resolved_old_version"]), ("range", ""))
+
+    def test_state_option_is_passed_through_and_defaults_to_closed(self):
+        list(bump_prs(self.client, "o/r", 10))
+        self.assertEqual(self.client.last_state, "closed")
+        list(bump_prs(self.client, "o/r", 10, state="open"))
+        self.assertEqual(self.client.last_state, "open")
 
     def test_row_matches_schema_and_roundtrips_through_csv(self):
         rows = [pr_row(self.client, "o/r", p) for p in bump_prs(self.client, "o/r", 10, True)]

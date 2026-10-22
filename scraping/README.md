@@ -12,3 +12,8 @@ Run from the repo root. `export GITHUB_TOKEN=<your personal access token>` first
 
 Both scrapers resume where they stopped (append-only CSV + HTTP cache in `scraping/.cache/`).
 Label rule: `LABEL_RULES.md`. Repo list: `shortlist_repos.txt` (Person A's 18 repos).
+
+## Scraping open or all PRs (`--state`)
+The frozen dataset is **closed PRs only**, which under-counts slow-to-close failures (see `report/data_issues_found_in_modeling.md`).
+`python scraping/scrape_prs.py --state open --out data/prs_open_v2.csv ...` collects open PRs. Always use a separate `--out`;
+do not overwrite the frozen files, and tell Esther before any data change.

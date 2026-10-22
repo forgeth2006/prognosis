@@ -51,8 +51,11 @@ def load_done(out):
         return {(r["repo"], r["pr_number"]) for r in csv.DictReader(f)}
 
 
-def bump_prs(client, repo, max_prs, keep_non_pip=False):
-    """Yield closed PRs authored by Dependabot, newest first, up to max_prs.
+def bump_prs(client, repo, max_prs, keep_non_pip=False, state="closed"):
+    """Yield PRs authored by Dependabot, newest first, up to max_prs.
+
+    state: closed (default, what the frozen dataset used) | open | all. Failing bump PRs tend to stay
+    open much longer than passing ones, so a closed-only scrape under-counts recent breakages.
 
     Unless keep_non_pip, PRs whose package name contains '/' (GitHub Actions, pre-commit hooks,
     e.g. "Bump actions/checkout") are skipped before any per-PR API call and do not count
@@ -60,7 +63,7 @@ def bump_prs(client, repo, max_prs, keep_non_pip=False):
     """
     seen = 0
     for pr in client.paginate(f"/repos/{repo}/pulls",
-                              params={"state": "closed", "sort": "created", "direction": "desc"}):
+                              params={"state": state, "sort": "created", "direction": "desc"}):
         if (pr.get("user") or {}).get("login") != BOT:
             continue
         if not keep_non_pip and "/" in parse_title(pr["title"])["package"]:
@@ -101,9 +104,9 @@ def pr_row(client, repo, pr):
     }
 
 
-def scrape_repo(client, repo, max_prs, writer, done, fh, keep_non_pip=False):
+def scrape_repo(client, repo, max_prs, writer, done, fh, keep_non_pip=False, state="closed"):
     n_new = n_skip = 0
-    for pr in bump_prs(client, repo, max_prs, keep_non_pip):
+    for pr in bump_prs(client, repo, max_prs, keep_non_pip, state):
         if (repo, str(pr["number"])) in done:
             n_skip += 1
             continue
@@ -123,6 +126,9 @@ def main():
     ap.add_argument("--repos", nargs="*", help="owner/name list (default: scraping/shortlist_repos.txt)")
     ap.add_argument("--repos-file", default=str(DEFAULT_REPOS))
     ap.add_argument("--max-prs", type=int, default=300, help="max Dependabot PRs per repo, newest first")
+    ap.add_argument("--state", choices=["closed", "open", "all"], default="closed",
+                    help="PR state to scrape (default closed). Use a separate --out for open/all: the "
+                         "frozen dataset is closed-only")
     ap.add_argument("--keep-non-pip", action="store_true",
                     help="also record GitHub Actions / pre-commit PRs (default: skip, they are never labeled)")
     ap.add_argument("--out", default=str(DEFAULT_OUT))
@@ -140,7 +146,7 @@ def main():
             writer.writeheader()
         for repo in read_repos(args):
             try:
-                scrape_repo(client, repo, args.max_prs, writer, done, fh, args.keep_non_pip)
+                scrape_repo(client, repo, args.max_prs, writer, done, fh, args.keep_non_pip, args.state)
             except GitHubError as e:
                 print(f"{repo}: FAILED ({e})")
     print(f"Done. {client.requests_made} API requests. Saved to {out}")
