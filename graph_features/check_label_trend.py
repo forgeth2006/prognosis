@@ -1,6 +1,6 @@
 """Why does the breakage rate fall across time chunks? (PRognosis, Week 9-12 data check)
 
-Person C found 17.6% -> 12.2% -> 8.0% -> 5.7% -> 5.7% across five time-ordered chunks of the frozen
+Person C found 17.5% -> 12.2% -> 8.0% -> 5.7% -> 5.7% across five time-ordered chunks of the frozen
 table. This script tests candidate explanations, read-only on data/:
 
   repo mix        - repos enter the window at different dates (the scrape took the newest PRs per repo),

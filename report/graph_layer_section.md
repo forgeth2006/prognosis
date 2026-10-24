@@ -16,6 +16,10 @@ For `not_in_graph`, the observed breakage rate was 7.6% when the flag was 0 (37/
 
 These patterns indicate that graph coverage and missingness should be investigated as potential signals. They may also reflect differences in repository coverage or data availability; they should not be interpreted as causal effects.
 
+### Blast radius
+
+Blast radius is the number of files in the repository that import the bumped package. Contrary to the intuition that wider use means more breakage, the observed rate was lower for packages imported by more files: 6.9% (23/335) for 2 or more files versus 10.8% (106/979) for 0-1 files (`blast_direct`), and 5.5% (13/238) for 3 or more files. `blast_transitive` shows the same direction (4.3%, 11/253, for more than 21 files versus 11.1%, 118/1,061). After stratifying by repository the odds ratio for 2+ files is 0.51 (95% confidence interval 0.24-1.13), and by repository and bump type 0.58 (0.26-1.49); both intervals include 1. We therefore report **no detectable effect of blast radius** in this dataset, not a protective one. The 824 rows with blast radius 0 are packages never imported in the repository snapshot (tools, plugins, transitive pins), so blast radius also separates "imported" from "not imported". See `graph_layer_adjusted_analysis.md`.
+
 ### Version-delta features
 
 The `minor_delta` bins had observed breakage rates of 8.1%, 8.3%, and 24.8%. The `patch_delta` bins had rates of 18.0%, 9.9%, 7.4%, and 2.4%.
@@ -31,6 +35,7 @@ Pull requests with `changelog_found=1` had an observed breakage rate of 8.7% (73
 - The dataset contains 129 breakages, so some feature bins have relatively few positive examples.
 - The prerelease flag has only one row with value 1 and cannot support a reliable comparison.
 - Missing graph features may encode data-collection coverage as well as package structure.
+- Repository and time confound every bin above. Breakage rates range from 0% to 33% across repositories and fell from 17.5% to 5.7% across five time-ordered chunks of the data, and the feature bins partly track which repository and period a pull request came from. The adjusted analysis (`graph_layer_adjusted_analysis.md`) and the trend diagnostic (`data_issues_found_in_modeling.md`) show which patterns survive.
 - Binned rates are unadjusted comparisons. They do not account for confounding, establish statistical significance, or demonstrate predictive performance.
 - Feature usefulness should be evaluated with the project's leakage-safe temporal split and appropriate held-out metrics.
 

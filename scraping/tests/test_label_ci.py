@@ -3,13 +3,35 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from label_ci import label_from_runs, label_row, static_exclusion  # noqa: E402
 
 
-def run(name, conclusion, attempt=1, event="pull_request", updated_at="2026-01-01T00:10:00Z"):
-    return {"name": name, "conclusion": conclusion, "run_attempt": attempt, "event": event,
-            "updated_at": updated_at}
+from label_ci import (
+    label_from_runs,
+    label_row,
+    static_exclusion,
+    latest_job_completed_at,
+)
 
+def run(
+    name,
+    conclusion,
+    attempt=1,
+    event="pull_request",
+    updated_at="2026-01-01T00:10:00Z",
+    _ci_completed_at=None,
+):
+    result = {
+        "name": name,
+        "conclusion": conclusion,
+        "run_attempt": attempt,
+        "event": event,
+        "updated_at": updated_at,
+    }
+
+    if _ci_completed_at is not None:
+        result["_ci_completed_at"] = _ci_completed_at
+
+    return result
 
 class LabelRuleTests(unittest.TestCase):
     def test_all_pass(self):
@@ -40,12 +62,51 @@ class LabelRuleTests(unittest.TestCase):
             r = label_from_runs(runs)
             self.assertEqual((r["ci_status"], r["label"]), ("no_ci", ""), runs)
 
-    def test_ci_completed_at_is_latest_finished_run(self):
-        r = label_from_runs([run("Tests", "success", updated_at="2026-01-01T00:10:00Z"),
-                             run("Lint", "success", updated_at="2026-01-01T00:25:00Z"),
-                             run("Docs", "cancelled", updated_at="2026-01-02T00:00:00Z")])
-        self.assertEqual(r["ci_completed_at"], "2026-01-01T00:25:00Z")
-        self.assertEqual(label_from_runs([])["ci_completed_at"], "")
+    def test_ci_completed_at_uses_job_completion_times(self):
+        r = label_from_runs([
+            run(
+                "Tests",
+                "success",
+                updated_at="2026-10-10T11:00:00Z",
+                _ci_completed_at="2025-09-05T11:26:08Z",
+            ),
+            run(
+                "Lint",
+                "success",
+                updated_at="2026-10-10T11:30:00Z",
+                _ci_completed_at="2025-09-05T11:30:00Z",
+            ),
+            run(
+                "Docs",
+                "cancelled",
+                updated_at="2026-10-11T00:00:00Z",
+            ),
+        ])
+
+        self.assertEqual(
+            r["ci_completed_at"],
+            "2025-09-05T11:30:00Z",
+        )
+    def test_ci_completed_at_is_blank_if_a_counted_run_lacks_timestamp(self):
+        r = label_from_runs([
+            run(
+                "Tests",
+                "success",
+                _ci_completed_at="2025-09-05T11:26:08Z",
+            ),
+            run(
+                "Lint",
+                "success",
+                updated_at="2026-10-10T11:30:00Z",
+                _ci_completed_at="",
+            ),
+        ])
+
+        # Keep the label because both workflows passed,
+        # but don't claim we know the overall verdict time.
+        self.assertEqual(r["label"], 0)
+        self.assertEqual(r["ci_status"], "pass")
+        self.assertEqual(r["ci_completed_at"], "")
 
     def test_ignored_workflow_does_not_mask_real_result(self):
         r = label_from_runs([run("Codecov", "failure"), run("Tests", "success")])
@@ -102,18 +163,33 @@ class StaticExclusionTests(unittest.TestCase):
 
 
 class FakeClient:
-    """Serves canned responses by URL path suffix."""
-    def __init__(self, commits, runs):
-        self.commits, self.runs = commits, runs
+    """Serves canned responses by URL path."""
+    def __init__(self, commits, runs, jobs_by_path=None):
+        self.commits = commits
+        self.runs = runs
+        self.jobs_by_path = jobs_by_path or {}
 
-    def paginate(self, path, params=None, item_key=None, cache=False, max_items=None):
+    def paginate(
+        self,
+        path,
+        params=None,
+        item_key=None,
+        cache=False,
+        max_items=None,
+    ):
+        if "/actions/runs/" in path and "/attempts/" in path and path.endswith("/jobs"):
+            return iter(self.jobs_by_path.get(path, []))
+
         if path.endswith("/commits"):
             return iter(self.commits)
-        if path.endswith("/actions/runs"):
-            assert params["head_sha"] == self.commits[0]["sha"], "must look up CI on the FIRST commit"
-            return iter(self.runs)
-        raise AssertionError(path)
 
+        if path.endswith("/actions/runs"):
+            assert params["head_sha"] == self.commits[0]["sha"], (
+                "must look up CI on the FIRST commit"
+            )
+            return iter(self.runs)
+
+        raise AssertionError(path)
 
 BOT = {"sha": "aaa", "author": {"login": "dependabot[bot]"}, "commit": {"author": {"name": "dependabot[bot]"}}}
 HUMAN = {"sha": "bbb", "author": {"login": "maintainer"}, "commit": {"author": {"name": "Maintainer"}}}
@@ -135,6 +211,117 @@ class LabelRowTests(unittest.TestCase):
         out = label_row(FakeClient([BOT], [run("Tests", "success")]), self.ROW)
         self.assertEqual((out["label"], out["has_human_commits"]), (0, False))
 
+    def test_clean_uses_job_completion_timestamp(self):
+        workflow = run(
+            "Tests",
+            "success",
+            attempt=1,
+            updated_at="2026-10-10T11:30:00Z",
+        )
+        workflow["id"] = 12345
 
+        jobs_path = "/repos/o/r/actions/runs/12345/attempts/1/jobs"
+        client = FakeClient(
+            [BOT],
+            [workflow],
+            jobs_by_path={
+                jobs_path: [
+                    {
+                        "status": "completed",
+                        "completed_at": "2025-09-05T11:26:08Z",
+                    },
+                    {
+                        "status": "in_progress",
+                        "completed_at": "2026-10-10T11:30:00Z",
+                    },
+                ]
+            },
+        )
+
+        out = label_row(client, self.ROW)
+
+        self.assertEqual(out["label"], 0)
+        self.assertEqual(
+            out["ci_completed_at"],
+            "2025-09-05T11:26:08Z",
+        )
+class FakeJobsClient:
+    def __init__(self, jobs):
+        self.jobs = jobs
+        self.last_call = None
+
+    def paginate(
+        self,
+        path,
+        params=None,
+        item_key=None,
+        cache=False,
+        max_items=None,
+    ):
+        self.last_call = {
+            "path": path,
+            "params": params,
+            "item_key": item_key,
+            "cache": cache,
+        }
+        return iter(self.jobs)
+
+
+class LatestJobCompletedAtTests(unittest.TestCase):
+    def test_uses_latest_completed_job_for_exact_attempt(self):
+        client = FakeJobsClient([
+            {
+                "status": "completed",
+                "completed_at": "2025-09-05T11:26:08Z",
+            },
+            {
+                "status": "completed",
+                "completed_at": "2025-09-05T11:30:00Z",
+            },
+            {
+                "status": "in_progress",
+                "completed_at": "2026-10-10T11:00:00Z",
+            },
+        ])
+
+        result = latest_job_completed_at(
+            client,
+            "aio-libs/yarl",
+            {"id": 12345, "run_attempt": 2},
+        )
+
+        self.assertEqual(result, "2025-09-05T11:30:00Z")
+        self.assertEqual(
+            client.last_call["path"],
+            "/repos/aio-libs/yarl/actions/runs/12345/attempts/2/jobs",
+        )
+        self.assertEqual(client.last_call["item_key"], "jobs")
+        self.assertTrue(client.last_call["cache"])
+
+    def test_missing_run_id_returns_empty_without_api_call(self):
+        client = FakeJobsClient([])
+
+        result = latest_job_completed_at(
+            client,
+            "aio-libs/yarl",
+            {"run_attempt": 1},
+        )
+
+        self.assertEqual(result, "")
+        self.assertIsNone(client.last_call)
+
+    def test_no_completed_job_timestamps_returns_empty(self):
+        client = FakeJobsClient([
+            {"status": "completed", "completed_at": None},
+            {"status": "in_progress", "completed_at": None},
+        ])
+
+        result = latest_job_completed_at(
+            client,
+            "aio-libs/yarl",
+            {"id": 12345, "run_attempt": 1},
+        )
+
+        self.assertEqual(result, "")
 if __name__ == "__main__":
     unittest.main()
