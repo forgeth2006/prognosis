@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "trained_at": "2026-10-24T09:01:29+00:00",
+  "source": "data/feature_table_v2.csv",
+  "n_rows": 1314,
+  "n_breakages": 129,
+  "fit_rows": 985,
+  "calibration_rows": 329,
+  "newest_pr_in_training": "2026-10-16 19:23:17+00:00",
+  "sklearn": "1.4.2",
+  "cut_review_first": 0.06004125126342379,
+  "cut_look_closer": 0.05762023239965647
+}
