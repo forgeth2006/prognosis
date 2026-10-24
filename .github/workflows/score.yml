@@ -1,0 +1,61 @@
+name: score-bumps
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # every 6 hours (minute 17 avoids the busy :00 slot)
+  workflow_dispatch:          # lets you run it by hand from the Actions tab
+
+# Never run two scoring jobs at once (they would overwrite each other's database).
+concurrency:
+  group: score-bumps
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # needed so the job can publish the database to the live-data branch
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Restore previous database from the live-data branch
+        run: |
+          mkdir -p data/live
+          git fetch origin live-data --depth=1 || true
+          if git cat-file -e origin/live-data:prognosis.db 2>/dev/null; then
+            git show origin/live-data:prognosis.db > data/live/prognosis.db
+            echo "Restored previous database."
+          else
+            echo "No previous database found (first run)."
+          fi
+
+      - name: Score open PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python pipeline/score_batch.py
+
+      - name: Publish database to the live-data branch
+        if: success()
+        run: |
+          set -e
+          tmp="$(mktemp -d)"
+          cp data/live/prognosis.db "$tmp/prognosis.db"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan live-data-new
+          git rm -rf . > /dev/null 2>&1 || true
+          cp "$tmp/prognosis.db" prognosis.db
+          git add prognosis.db
+          git commit -m "Update scored PRs $(date -u +%Y-%m-%dT%H:%MZ)"
+          # This branch is written only by this job and keeps just one commit,
+          # so the repo does not grow every 6 hours.
+          git push --force origin HEAD:live-data
