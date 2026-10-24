@@ -29,8 +29,9 @@ jobs:
 
       # The frozen model (pipeline/models/model_v1.joblib) was saved with scikit-learn 1.4.2.
       # A model file can only be loaded safely with the same version, so match it here.
+      # (numpy<2 and pandas<3 go together: pandas 3 needs numpy 2, which old scikit-learn cannot use.)
       - name: Match the scikit-learn version the frozen model was saved with
-        run: pip install "scikit-learn==1.4.2" "numpy<2"
+        run: pip install "scikit-learn==1.4.2" "numpy<2" "pandas<3"
 
       - name: Restore previous database from the live-data branch
         run: |
