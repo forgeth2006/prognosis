@@ -52,17 +52,19 @@ Four of the 17 repos contribute no labelled rows (pytorch-lightning, rich, mitmp
 
 The CI labelling pipeline derives `ci_completed_at` from completed jobs associated with the relevant GitHub Actions workflow-run attempt. It does not substitute the workflow run's `updated_at` when job completion time cannot be established; in that case, the timestamp is left blank.
 
-Preliminary checks were performed on three samples:
+### Preliminary validation samples
 
-- **20-PR smoke test:** all 20 PRs received labels, with no breakages in this sample.
-- **100-PR multi-repository sample:** 50 PRs received labels and 50 were excluded. The included PRs in this sample had no positive breakage labels.
+- **20-PR smoke test:** 20 PRs were included, with zero breakage labels.
+- **100-PR multi-repository sample:** 50 PRs were included and 50 excluded. No included PRs in this sample received a positive breakage label.
 - **20 previously labelled positive examples:** all 20 retained their breakage labels in this targeted check.
 
-These samples serve different purposes. The positive-example sample was selected specifically to test previously labelled breakages, whereas the 100-PR sample was not a representative estimate of the dataset's breakage rate. The results do not establish that the full dataset has been revalidated.
+These samples serve different purposes. The positive-example sample was selected specifically to test previously labelled breakages, while the 100-PR sample was not selected to estimate the dataset's overall breakage rate. These results do not establish that the full dataset has been revalidated.
 
-In the timestamp comparison against the existing frozen dataset, comparable rows showed either exact agreement or a one-second difference. These checks are preliminary and should not be interpreted as evidence of improved predictive performance.
+### Timestamp comparison
 
-The frozen feature table and existing dataset remain unchanged by these validation experiments.
+In the earlier comparison against the existing frozen dataset, comparable rows showed either exact timestamp agreement or a one-second difference. This is a preliminary consistency check, not evidence of improved predictive performance.
+
+The frozen feature table and dataset were not modified by these validation experiments.
 
 ## 8. Limitations (state these in the report)
 1. **Few positives**: 129 breakages; per-repo rates run 0% to 33%. Confidence intervals are wide (see graph-layer section).
