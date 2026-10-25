@@ -26,9 +26,10 @@ Draft stage. Waiting on B's 3-repo validation to know the real breakage rate.
   strictly before the PR's creation; the global rate is also point-in-time; unseen packages
   fall back to the global rate.
 - To tune (training period only): PRIOR_RATE, PRIOR_STRENGTH, M.
- - Label defect found: mitmproxy's 55 failures are all `autofix.ci` and 25 of streamlit's 26 are
-  `Run Semgrep Checks` (non-test workflows). Removing them leaves about 135 breakages (~10%).
-  Needs IGNORE_WORKFLOW update + re-label (Person B).
+ - Label defect identified: mitmproxy's 55 failures were attributed to `autofix.ci`, and 25 of
+  streamlit's 26 to `Run Semgrep Checks`. `IGNORE_WORKFLOW` now excludes these workflows, with
+  regression tests covering ignored workflows and genuine test failures. A fresh full-dataset
+  relabel and downstream validation remain to be confirmed.
 - Yield: PRs before 2025Q3 have no CI results (0 labeled); from 2025Q4 53-78% label.
   Usable history is about 14 months (2025-08 to 2026-10).
 - Only 5 of 215 breakages are `confirmed`, so a confirmed-only sensitivity run is infeasible.
