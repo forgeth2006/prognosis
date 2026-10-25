@@ -95,3 +95,8 @@ if __name__ == "__main__":
     hit = int(y[flag].sum())
     print(f"\nBaseline rule flags {int(flag.sum())} PRs: caught {hit} breakages, "
           f"precision {hit / max(1, flag.sum()):.3f}, recall {hit / y.sum():.3f}")
+    out = df.loc[m, ["repo", "pr_number", "created_at"]].copy()
+    out["label"] = y
+    out["score"] = p
+    out["baseline_flag"] = (oofs[models[0][0]][m] > 0).astype(int).to_numpy()
+    save(out, "week13_oof_predictions.csv")
