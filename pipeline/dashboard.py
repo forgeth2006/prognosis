@@ -2,7 +2,11 @@
 
     streamlit run pipeline/dashboard.py
 """
+import os
 import sqlite3
+import tempfile
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pandas as pd
@@ -14,14 +18,42 @@ st.title("PRognosis: dependency-bump review queue")
 st.caption("Scores rank PRs by how likely a bump is to break CI. They are not precise probabilities: "
            "read the band and the percentile, and review the top band first.")
 
-db = st.sidebar.text_input("Database", str(ROOT / "data" / "live" / "prognosis.db"))
-if not Path(db).exists():
-    st.warning(f"No database at {db}. Run `python pipeline/score_batch.py` (or `--demo 20`) first.")
-    st.stop()
+REPO = "forgeth2006/prognosis"
+
+
+@st.cache_data(ttl=300, show_spinner="Fetching the latest database from the live-data branch ...")
+def fetch_live_db(path):
+    url = f"https://raw.githubusercontent.com/{REPO}/live-data/{path}"
+    req = urllib.request.Request(url, headers={"User-Agent": "prognosis-dashboard"})
+    if os.environ.get("GITHUB_TOKEN"):               # only needed if the repo is private
+        req.add_header("Authorization", f"Bearer {os.environ['GITHUB_TOKEN']}")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = r.read()
+    out = Path(tempfile.gettempdir()) / "prognosis_live.db"
+    out.write_bytes(data)
+    return str(out)
+
+
+source = st.sidebar.radio("Data source", ["live-data branch", "local file"])
+if source == "live-data branch":
+    remote_path = st.sidebar.text_input("File in the live-data branch", "prognosis.db")
+    try:
+        db = fetch_live_db(remote_path)
+    except (urllib.error.URLError, OSError) as e:
+        st.error(f"Could not fetch the database from the live-data branch ({e}). If the repo is private, "
+                 "set GITHUB_TOKEN before starting Streamlit; otherwise pick 'local file'.")
+        st.stop()
+else:
+    db = st.sidebar.text_input("Database", str(ROOT / "data" / "live" / "prognosis.db"))
+    if not Path(db).exists():
+        st.warning(f"No database at {db}. Run `python pipeline/score_batch.py` (or `--demo 20`) first.")
+        st.stop()
 con = sqlite3.connect(db)
 df = pd.read_sql("SELECT * FROM scored_prs", con)
 runs = pd.read_sql("SELECT * FROM runs ORDER BY started_at DESC LIMIT 10", con)
 scored, skipped = df[df["status"] == "scored"], df[df["status"] == "skipped"]
+if len(runs):
+    st.caption(f"Last run: {runs.iloc[0]['finished_at']} ({runs.iloc[0]['status']})")
 if "demo" in " ".join(runs["run_id"].astype(str)):
     st.info("Demo data: these PRs were in the model's training data, so the scores are not an evaluation.")
 

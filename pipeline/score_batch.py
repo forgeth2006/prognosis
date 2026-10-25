@@ -9,6 +9,7 @@ reason; a failure in one repo or stage never stops the run.
 """
 import argparse
 import datetime as dt
+import json 
 import shutil
 import sqlite3
 import subprocess
@@ -17,6 +18,7 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+import sklearn
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipeline"))
@@ -106,7 +108,14 @@ def main():
 
     LIVE.mkdir(parents=True, exist_ok=True)
     db = a.db or str(LIVE / ("demo.db" if a.demo else "prognosis.db"))
-    model = joblib.load(a.model)            # a missing or incompatible model is fatal on purpose
+    meta_file = Path(a.model).with_suffix(".json")
+    if meta_file.exists():
+        trained_with = json.loads(meta_file.read_text()).get("sklearn")
+        if trained_with and trained_with != sklearn.__version__:
+            sys.exit(f"The model was trained with scikit-learn {trained_with} but {sklearn.__version__} is "
+                     f"installed. Run: pip install scikit-learn=={trained_with}  "
+                     f"(or retrain with: python pipeline/train_final.py)")
+    model = joblib.load(a.model)      
     history = pd.read_csv(a.history)
     history = history[history["label"].notna()]
     con = sqlite3.connect(db)
