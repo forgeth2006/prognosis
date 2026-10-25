@@ -64,7 +64,7 @@ In the earlier comparison with the existing frozen dataset, comparable rows show
 
 The frozen feature table and dataset were not modified by these validation experiments.
 
-## 8. Limitations (state these in the report)
+## 8. Limitations
 1. **Few positives**: 129 breakages; per-repo rates run 0% to 33%. Confidence intervals are wide (see graph-layer section).
 2. **Closed-only scrape (right-censoring)**: failing PRs stay open longer (median 3.1 days vs 0.05 for passing; 25% merged vs 92%),
    so the newest chunk is missing breakages that are still open. Rates in recent months are biased down.
