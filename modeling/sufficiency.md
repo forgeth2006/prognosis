@@ -10,3 +10,7 @@ LR 0.239 vs GB 0.216; GB wins 5 of 11 repos.
 Conclusion: logistic regression is sufficient. Boosting's time-ordered advantage does not hold on unseen repos.
 Limits: 129 breakages; row-level bootstrap ignores repo clustering; sibling aio-libs repos make LORO optimistic;
 repos with 1-4 breakages give unstable per-repo scores.
+
+Add these two lines:
+“Baseline: logistic regression beats the ‘major bump’ rule (pooled PR-AUC 0.149 vs 0.088; random = 0.079, time-ordered folds).”
+“Calibration: Platt scaling fixed the probability scale (Brier 0.285 to 0.104), but the calibrated Brier is still no better than always predicting the base rate, so don’t show probabilities as precise percentages yet. Tables: modeling/results/.”

@@ -58,3 +58,11 @@ Brier LR [a] vs GB [b]; leave-one-repo-out: [summary].
 Conclusion: [logistic regression is sufficient / boosting adds value] because [...].
 Limits: ~129 positives (~20 per fold); row bootstrap ignores repo clustering; hist_* and
 changelog features are present for most but not all rows.
+
+# limitations
+- Package history can reflect a single episode. Sphinx has 6 breakages, 5 of them within 4 days
+  (Dec 2025, the 9.0.x releases, in three sibling repos), and no labeled sphinx PR after 2026-01-06,
+  so the frozen data cannot show whether that risk persisted. Live sphinx PRs therefore score high
+  mainly through `hist_rate`. Packages such as ruff, tox and coverage have breakages spread over
+  4-12 months, where history is a more credible signal. Possible follow-up: recency-weighted history,
+  to be tested on the time-ordered folds before adoption.
