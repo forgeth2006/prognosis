@@ -48,7 +48,23 @@ Four of the 17 repos contribute no labelled rows (pytorch-lightning, rich, mitmp
 - Row counts and keys reconcile between labelled table and feature table; no unexplained nulls (`data/dataset_checks_v2.md`).
 - Scraper, labeller, parser and graph code have unit tests (70 + the EDA tests).
 
-## 7. Limitations (state these in the report)
+## 7. CI completion timestamp validation
+
+The CI labelling pipeline derives `ci_completed_at` from completed jobs associated with the relevant GitHub Actions workflow-run attempt. It does not substitute the workflow run's `updated_at` when job completion time cannot be established; in that case, the timestamp is left blank.
+
+Preliminary checks were performed on three samples:
+
+- **20-PR smoke test:** all 20 PRs received labels, with no breakages in this sample.
+- **100-PR multi-repository sample:** 50 PRs received labels and 50 were excluded. The included PRs in this sample had no positive breakage labels.
+- **20 previously labelled positive examples:** all 20 retained their breakage labels in this targeted check.
+
+These samples serve different purposes. The positive-example sample was selected specifically to test previously labelled breakages, whereas the 100-PR sample was not a representative estimate of the dataset's breakage rate. The results do not establish that the full dataset has been revalidated.
+
+In the timestamp comparison against the existing frozen dataset, comparable rows showed either exact agreement or a one-second difference. These checks are preliminary and should not be interpreted as evidence of improved predictive performance.
+
+The frozen feature table and existing dataset remain unchanged by these validation experiments.
+
+## 8. Limitations (state these in the report)
 1. **Few positives**: 129 breakages; per-repo rates run 0% to 33%. Confidence intervals are wide (see graph-layer section).
 2. **Closed-only scrape (right-censoring)**: failing PRs stay open longer (median 3.1 days vs 0.05 for passing; 25% merged vs 92%),
    so the newest chunk is missing breakages that are still open. Rates in recent months are biased down.
