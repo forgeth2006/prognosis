@@ -36,8 +36,7 @@ Four of the 17 repos contribute no labelled rows (pytorch-lightning, rich, mitmp
 ## 5. Features
 - **Bump**: type, deltas, pre-release, 0.x, range flag.
 - **Graph (`graph_features/`)**: for each PR, the repo is graphed *as of the start of the PR's month* from git history
-  (no checkout; `snapshots.py`), using static `ast` imports. Blast radius = number of modules importing the package
-  (direct, src, tests, transitive), plus minimum/mean import depth. `not_in_graph` means the package is a tool or
+  (no checkout; `snapshots.py`), using static `ast` imports. Blast radius describes the number of modules importing the package, including direct and transitive imports across source and test code. The features also include minimum and mean import depth. `not_in_graph` means the package is a tool or
   transitive dependency never imported; `depth_missing` means test-only or not imported. Both are *flags*, not zeros.
 - **Historical breakage** (`historical_rate.py`): per package, pooled across repos, over strictly earlier CI verdicts
   only (using the PR's `ci_completed_at`), smoothed toward 0.10 with strength 20.
@@ -46,9 +45,26 @@ Four of the 17 repos contribute no labelled rows (pytorch-lightning, rich, mitmp
 ## 6. Leakage controls and checks
 - Graph snapshot is never newer than the PR (0 violations); history uses earlier verdicts only (brute-force recompute on 300 rows).
 - Row counts and keys reconcile between labelled table and feature table; no unexplained nulls (`data/dataset_checks_v2.md`).
-- Scraper, labeller, parser and graph code have unit tests (70 + the EDA tests).
+- Scraper, labeller, parser, graph-feature, and related analysis code are covered by automated unit tests. The latest test run passed all 85 tests: 52 scraping tests and 33 graph-feature tests.
 
-## 7. Limitations (state these in the report)
+## 7. CI completion timestamp validation
+The CI labelling pipeline derives `ci_completed_at` from completed jobs associated with the relevant GitHub Actions workflow-run attempt. It does not substitute the workflow run's `updated_at` when job completion time cannot be established; in that case, the timestamp is left blank.
+
+### Preliminary validation samples
+
+- **20-PR smoke test:** All 20 PRs were included, with zero positive breakage labels.
+- **100-PR multi-repository sample:** 50 PRs were included and 50 were excluded. None of the 50 included PRs received a positive breakage label.
+- **20 previously labelled positive examples:** All 20 retained their positive breakage labels in this targeted validation check.
+
+These samples serve different purposes. The positive-example sample was deliberately selected to check whether previously labelled breakages retained their labels. The 100-PR sample was not designed to estimate the dataset's overall breakage rate. Therefore, these preliminary checks do not establish that the full dataset has been revalidated.
+
+### Timestamp comparison
+
+In the earlier comparison with the existing frozen dataset, comparable rows showed either exact timestamp agreement or a one-second difference. This is a preliminary consistency check, not evidence of improved predictive performance.
+
+The frozen feature table and dataset were not modified by these validation experiments.
+
+## 8. Limitations
 1. **Few positives**: 129 breakages; per-repo rates run 0% to 33%. Confidence intervals are wide (see graph-layer section).
 2. **Closed-only scrape (right-censoring)**: failing PRs stay open longer (median 3.1 days vs 0.05 for passing; 25% merged vs 92%),
    so the newest chunk is missing breakages that are still open. Rates in recent months are biased down.
